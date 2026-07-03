@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from .datasets import get_config
-from .loaders import load_class_pools, split_pool
+from .loaders import load_class_pools
 from .utils import default, sigmoid
 
 
@@ -84,7 +84,7 @@ class Scenario:
         if len(self.outcome_coefficients) != self.covariate_dimension:
             raise ValueError(f"outcome_coefficients has length {len(self.outcome_coefficients)}, expected: {self.covariate_dimension}")
 
-    def generate(self, n, *, seed=None, split="train"):
+    def generate(self, n, *, seed=None, split="train", replace=False):
         """Sample a dataset from this scenario's causal model.
 
         Draws confounders `X`, assigns treatment `A` given `X`, generates potential outcomes `Y0`
@@ -94,8 +94,8 @@ class Scenario:
         Args:
             n: Sample size, the number of units to generate.
             seed: Random seed for this draw, overriding the scenario's seed.
-            split: Which half of the source image pool to draw baselines from, "train" or "test".
-                Use "test" for held-out evaluation.
+            split: Which MedMNIST split to draw baselines from, "train", "val", or "test".
+            replace: If True, sample baselines with replacement so `n` may exceed the split size.
 
         Returns:
             A `Sample` holding `X`, `A`, `Y`, `propensity`, and the oracle outcomes `Y0` and `Y1`.
@@ -107,27 +107,27 @@ class Scenario:
         X = rng.normal(0, 1, size=(n, self.covariate_dimension))
         propensity = np.clip(sigmoid(X @ alpha), *self.propensity_clipping)
         A = rng.binomial(1, propensity)
-        Y0, Y1 = self._potential_outcomes(X, beta, split, rng, n)
+        Y0, Y1 = self._potential_outcomes(X, beta, split, replace, rng, n)
 
         select = A.reshape((-1,) + (1,) * (Y0.ndim - 1))
         Y = np.where(select == 1, Y1, Y0)
         return Sample(X=X, Y=Y, A=A, propensity=propensity, Y0=Y0, Y1=Y1)
 
-    def _fitted_perturbation(self, healthy, disease):
+    def _fitted_perturbation(self):
         if self._perturbation is None:
+            source = self.config.source or self.config.key
+            healthy, disease = load_class_pools(source, *self.config.classes, split="train")
             self._perturbation = self.config.perturbation(prior=self.config.prior).fit(healthy, disease)
         return self._perturbation
 
-    def _potential_outcomes(self, X, beta, split, rng, n, q_min=0.10, q_max=0.40, tau=0.20):
+    def _potential_outcomes(self, X, beta, split, replace, rng, n, q_min=0.10, q_max=0.40, tau=0.20):
         config = self.config
-        healthy, disease = load_class_pools(config.source or config.key, *config.classes)
-        pool = split_pool(np.arange(len(healthy)), split)
+        healthy, _ = load_class_pools(config.source or config.key, *config.classes, split=split)
 
-        if n > len(pool):
-            raise ValueError(f"n={n} exceeds the {len(pool)} available baselines for split={split!r}")
-        
-        baselines = healthy[rng.choice(pool, size=n, replace=False)]
-        perturbation = self._fitted_perturbation(healthy, disease)
+        if not replace and n > len(healthy):
+            raise ValueError(f"n={n} exceeds the {len(healthy)} baselines for split={split!r}; pass replace=True to reuse them")
+        baselines = healthy[rng.choice(len(healthy), size=n, replace=replace)]
+        perturbation = self._fitted_perturbation()
 
         q = q_min + (q_max - q_min) * sigmoid(X @ beta)
         S = rng.binomial(1, q).astype(float)

@@ -1,4 +1,4 @@
-from .configs import OCTMNIST_CNV, OCTMNIST_DME, OCTMNIST_DRUSEN
+from .configs import OCTMNIST_CNV, OCTMNIST_DME, OCTMNIST_DRUSEN, PNEUMONIA
 from .datasets import DatasetConfig, get_config, register
 from .scenario import Sample, Scenario
 
@@ -11,4 +11,5 @@ __all__ = [
     "OCTMNIST_CNV",
     "OCTMNIST_DME",
     "OCTMNIST_DRUSEN",
+    "PNEUMONIA",
 ]

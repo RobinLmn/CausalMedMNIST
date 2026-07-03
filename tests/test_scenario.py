@@ -5,8 +5,8 @@ import causal_medmnist as cm
 from causal_medmnist.perturbations.localized import LocalizedPerturbation
 from causal_medmnist.perturbations.scattered import ScatteredPerturbation
 
-CONFIGS = [cm.OCTMNIST_CNV, cm.OCTMNIST_DME, cm.OCTMNIST_DRUSEN]
-CONFIG_IDS = ["cnv", "dme", "drusen"]
+CONFIGS = [cm.OCTMNIST_CNV, cm.OCTMNIST_DME, cm.OCTMNIST_DRUSEN, cm.PNEUMONIA]
+CONFIG_IDS = ["cnv", "dme", "drusen", "pneumonia"]
 
 
 @pytest.fixture(params=CONFIGS, ids=CONFIG_IDS, scope="module")

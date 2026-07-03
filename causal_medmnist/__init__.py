@@ -1,4 +1,4 @@
-from .configs import OCTMNIST_DME, OCTMNIST_CNV
+from .configs import OCTMNIST_CNV, OCTMNIST_DME, OCTMNIST_DRUSEN
 from .datasets import DatasetConfig, get_config, register
 from .scenario import Sample, Scenario
 
@@ -8,6 +8,7 @@ __all__ = [
     "DatasetConfig",
     "get_config",
     "register",
-    "OCTMNIST_DME",
     "OCTMNIST_CNV",
+    "OCTMNIST_DME",
+    "OCTMNIST_DRUSEN",
 ]

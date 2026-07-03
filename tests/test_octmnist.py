@@ -2,12 +2,21 @@ import numpy as np
 import pytest
 
 import causal_medmnist as cm
-from causal_medmnist.perturbations.class_contrast import ClassContrastPerturbation
+from causal_medmnist.perturbations.localized import LocalizedPerturbation
+from causal_medmnist.perturbations.scattered import ScatteredPerturbation
+
+CONFIGS = [cm.OCTMNIST_CNV, cm.OCTMNIST_DME, cm.OCTMNIST_DRUSEN]
+CONFIG_IDS = ["cnv", "dme", "drusen"]
+
+
+@pytest.fixture(params=CONFIGS, ids=CONFIG_IDS, scope="module")
+def config(request):
+    return request.param
 
 
 @pytest.fixture(scope="module")
-def sample():
-    return cm.Scenario(cm.OCTMNIST, effect_strength=0.6).generate(n=200, seed=0)
+def sample(config):
+    return cm.Scenario(config, effect_strength=0.6).generate(n=200, seed=0)
 
 
 def test_shapes(sample):
@@ -43,54 +52,52 @@ def test_observed_matches_potential_outcomes(sample):
     assert np.array_equal(sample.Y, expected)
 
 
-def test_determinism():
-    a = cm.Scenario(cm.OCTMNIST).generate(n=50, seed=0)
-    b = cm.Scenario(cm.OCTMNIST).generate(n=50, seed=0)
+def test_determinism(config):
+    a = cm.Scenario(config).generate(n=50, seed=0)
+    b = cm.Scenario(config).generate(n=50, seed=0)
     assert np.array_equal(a.X, b.X)
     assert np.array_equal(a.A, b.A)
     assert np.array_equal(a.Y, b.Y)
 
 
-def test_different_seed_differs():
-    a = cm.Scenario(cm.OCTMNIST).generate(n=50, seed=0)
-    b = cm.Scenario(cm.OCTMNIST).generate(n=50, seed=1)
+def test_different_seed_differs(config):
+    a = cm.Scenario(config).generate(n=50, seed=0)
+    b = cm.Scenario(config).generate(n=50, seed=1)
     assert not np.array_equal(a.Y, b.Y)
 
 
-def test_string_and_object_selector_match():
-    a = cm.Scenario(cm.OCTMNIST).generate(n=50, seed=0)
-    b = cm.Scenario("octmnist").generate(n=50, seed=0)
+def test_string_and_object_selector_match(config):
+    a = cm.Scenario(config).generate(n=50, seed=0)
+    b = cm.Scenario(config.key).generate(n=50, seed=0)
     assert np.array_equal(a.Y, b.Y)
 
 
-def test_effect_grows_with_strength():
-    weak = cm.Scenario(cm.OCTMNIST, effect_strength=0.0).generate(n=200, seed=0)
-    strong = cm.Scenario(cm.OCTMNIST, effect_strength=0.6).generate(n=200, seed=0)
+def test_effect_grows_with_strength(config):
+    weak = cm.Scenario(config, effect_strength=0.0).generate(n=200, seed=0)
+    strong = cm.Scenario(config, effect_strength=0.6).generate(n=200, seed=0)
     assert (strong.Y1 - strong.Y0).std() > (weak.Y1 - weak.Y0).std()
 
 
-def test_effect_is_centered():
-    sample = cm.Scenario(cm.OCTMNIST, effect_strength=0.6).generate(n=300, seed=0)
+def test_effect_is_centered(config):
+    sample = cm.Scenario(config, effect_strength=0.6).generate(n=300, seed=0)
     average_effect = (sample.Y1 - sample.Y0).mean(axis=0)
     assert np.abs(average_effect).max() < 1e-6
 
 
-def test_uncentered_effect_has_nonzero_mean():
-    sample = cm.Scenario(cm.OCTMNIST, effect_strength=0.6, center_effect=False).generate(
-        n=300, seed=0
-    )
+def test_uncentered_effect_has_nonzero_mean(config):
+    sample = cm.Scenario(config, effect_strength=0.6, center_effect=False).generate(n=300, seed=0)
     average_effect = (sample.Y1 - sample.Y0).mean(axis=0)
     assert np.abs(average_effect).max() > 1e-3
 
 
-def test_randomized_when_no_confounding():
-    sample = cm.Scenario(cm.OCTMNIST, confounding_strength=0.0).generate(n=200, seed=0)
+def test_randomized_when_no_confounding(config):
+    sample = cm.Scenario(config, confounding_strength=0.0).generate(n=200, seed=0)
     assert np.allclose(sample.propensity, 0.5)
 
 
 def test_covariate_dimension_override():
     scenario = cm.Scenario(
-        cm.OCTMNIST,
+        cm.OCTMNIST_DME,
         covariate_dimension=3,
         treatment_coefficients=np.array([0.5, -0.3, 0.2]),
         outcome_coefficients=np.array([0.4, -0.2, 0.1]),
@@ -103,21 +110,22 @@ def test_unknown_dataset_raises():
         cm.Scenario("not_a_dataset")
 
 
-def test_apply_before_fit_raises():
+@pytest.mark.parametrize("perturbation", [LocalizedPerturbation, ScatteredPerturbation])
+def test_apply_before_fit_raises(perturbation):
     with pytest.raises(RuntimeError):
-        ClassContrastPerturbation().apply(np.zeros((1, 28, 28)), np.zeros(1), np.random.default_rng(0))
+        perturbation().apply(np.zeros((1, 28, 28)), np.zeros(1), np.random.default_rng(0))
 
 
 def test_coefficient_dimension_mismatch_raises():
     with pytest.raises(ValueError):
-        cm.Scenario(cm.OCTMNIST, covariate_dimension=4)
+        cm.Scenario(cm.OCTMNIST_DME, covariate_dimension=4)
 
 
 def test_bad_split_raises():
     with pytest.raises(ValueError):
-        cm.Scenario(cm.OCTMNIST).generate(n=5, seed=0, split="validation")
+        cm.Scenario(cm.OCTMNIST_DME).generate(n=5, seed=0, split="validation")
 
 
 def test_n_too_large_raises():
     with pytest.raises(ValueError):
-        cm.Scenario(cm.OCTMNIST).generate(n=10**9, seed=0)
+        cm.Scenario(cm.OCTMNIST_DME).generate(n=10**9, seed=0)

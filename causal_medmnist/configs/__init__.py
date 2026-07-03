@@ -1,6 +1,7 @@
 from .octmnist import (
     OCTMNIST_CNV,
     OCTMNIST_DME,
+    OCTMNIST_DRUSEN,
     OCTMNIST_CNV_LABEL,
     OCTMNIST_DME_LABEL,
     OCTMNIST_DRUSEN_LABEL,
@@ -10,6 +11,7 @@ from .octmnist import (
 __all__ = [
     "OCTMNIST_CNV",
     "OCTMNIST_DME",
+    "OCTMNIST_DRUSEN",
     "OCTMNIST_CNV_LABEL",
     "OCTMNIST_DME_LABEL",
     "OCTMNIST_DRUSEN_LABEL",

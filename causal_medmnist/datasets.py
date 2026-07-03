@@ -17,8 +17,6 @@ class DatasetConfig:
     treatment_coefficients: np.ndarray
     outcome_coefficients: np.ndarray
     source: str | None = None
-    """The MedMNIST dataset to load images from; defaults to `key` when omitted. Set this when
-    several configs (e.g. per disease class) share one source dataset but need distinct keys."""
 
 
 REGISTRY: dict[str, DatasetConfig] = {}

@@ -7,19 +7,26 @@ def spatial_smooth(image, sigma):
     return gaussian_filter(image, (sigma, sigma, 0) if image.ndim == 3 else sigma)
 
 
-def gaussian_prior(shape, center, sigma):
-    """A 2D Gaussian bump over an image grid, used as a location prior.
+def _gaussian_bump(shape, center, sigma):
+    rows, columns = np.ogrid[0 : shape[0], 0 : shape[1]]
+    return np.exp(-0.5 * (((rows - center[0]) / sigma[0]) ** 2 + ((columns - center[1]) / sigma[1]) ** 2))
+
+
+def gaussian_prior(healthy, disease, signed=False, n=None, rng=None, *, center, sigma):
+    """Location prior that is a fixed 2D Gaussian bump at `center` with spread `sigma`.
+
+    Bind `center` and `sigma` in the config, e.g. `prior=partial(gaussian_prior, center=(14, 13), sigma=(3, 3))`.
 
     Args:
-        shape: (height, width) of the image.
+        healthy, disease: Class pools; only `healthy`'s image shape is used.
+        signed, n, rng: Accepted for the shared prior signature but unused.
         center: (row, column) of the bump's peak.
         sigma: (row_spread, column_spread) of the bump.
 
     Returns:
         A (height, width) array in [0, 1] peaking at `center`.
     """
-    rows, columns = np.ogrid[0 : shape[0], 0 : shape[1]]
-    return np.exp(-0.5 * (((rows - center[0]) / sigma[0]) ** 2 + ((columns - center[1]) / sigma[1]) ** 2))
+    return _gaussian_bump(healthy.shape[1:3], center, sigma)
 
 
 def derived_prior(healthy, disease, signed=False, n=None, rng=None):
@@ -47,7 +54,14 @@ def derived_prior(healthy, disease, signed=False, n=None, rng=None):
 
     center = ((weights.sum(1) * rows).sum(), (weights.sum(0) * columns).sum())
     sigma = (np.sqrt((weights.sum(1) * (rows - center[0]) ** 2).sum()), np.sqrt((weights.sum(0) * (columns - center[1]) ** 2).sum()))
-    return gaussian_prior(positive.shape, center, sigma)
+    return _gaussian_bump(positive.shape, center, sigma)
+
+
+def dark_region_prior(healthy, disease, signed=False, n=None, rng=None):
+    """Location prior favouring the darker (lower-intensity) regions of the healthy image."""
+    brightness = gaussian_filter(healthy.mean(0), sigma=1.0)
+    dark = np.maximum(brightness.max() - brightness, 0.0)
+    return dark / (dark.max() + 1e-12)
 
 
 def unilateral_prior(healthy, disease, signed=False, n=None, rng=None):

@@ -74,7 +74,7 @@ class Scenario:
         self.outcome_coefficients = default(outcome_coefficients, self.config.outcome_coefficients)
         self.center_effect = center_effect
         self.seed = seed
-        self.perturbation = default(perturbation, self.config.perturbation(prior=self.config.prior))
+        self.perturbation = default(perturbation, self.config.perturbation)(prior=self.config.prior)
 
         if len(self.treatment_coefficients) != self.covariate_dimension:
             raise ValueError(f"treatment_coefficients has length {len(self.treatment_coefficients)}, expected: {self.covariate_dimension}")
@@ -114,10 +114,12 @@ class Scenario:
     def _potential_outcomes(self, X, beta, split, replace, rng, n, q_min=0.10, q_max=0.40, tau=0.20):
         healthy, disease = load_class_pools(self.config.source or self.config.key, *self.config.classes, split=split)
         if not replace and n > len(healthy):
-            raise ValueError(f"N={n} exceeds the number of available images for split={split!r} (available: {len(healthy)}). Set replace=True orreduce N.")
+            raise ValueError(f"N={n} exceeds the number of available images for split={split!r} (available: {len(healthy)}). Set replace=True or reduce N.")
 
         baselines = healthy[rng.choice(len(healthy), size=n, replace=replace)]
-        self.perturbation.fit(healthy, disease, baselines, rng)
+
+        healthy_tr, disease_tr = load_class_pools(self.config.source or self.config.key, *self.config.classes, split="train")
+        self.perturbation.fit(healthy_tr, disease_tr, baselines, rng)
 
         q = q_min + (q_max - q_min) * sigmoid(X @ beta)
         S = rng.binomial(1, q).astype(float)

@@ -3,7 +3,7 @@ import numpy as np
 from ..datasets import DatasetConfig, register
 from ..perturbations.localized import LocalizedPerturbation
 from ..perturbations.scattered import ScatteredPerturbation
-from ..prior import derived_prior
+from ..prior import dark_region_prior, derived_prior
 
 CHESTMNIST_NO_FINDING_LABEL = 0
 CHESTMNIST_EFFUSION_LABEL = 2
@@ -45,7 +45,7 @@ CHEST_NODULE = register(
         classes=(CHESTMNIST_NO_FINDING_LABEL, CHESTMNIST_NODULE_LABEL),
         channels=1,
         covariate_dimension=6,
-        prior=derived_prior,
+        prior=dark_region_prior,
         perturbation=ScatteredPerturbation,
         treatment_coefficients=np.array([0.90, -0.75, 0.55, -0.40, 0.30, -0.20]),
         outcome_coefficients=np.array([0.60, -0.50, 0.40, -0.30, 0.20, -0.10]),

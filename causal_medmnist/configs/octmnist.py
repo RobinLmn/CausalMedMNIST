@@ -48,7 +48,7 @@ OCTMNIST_DRUSEN = register(
         channels=1,
         covariate_dimension=6,
         prior=derived_prior,
-        perturbation=ScatteredPerturbation,
+        perturbation=partial(ScatteredPerturbation, temperature=0.5),
         treatment_coefficients=np.array([0.90, -0.75, 0.55, -0.40, 0.30, -0.20]),
         outcome_coefficients=np.array([0.60, -0.50, 0.40, -0.30, 0.20, -0.10]),
     )

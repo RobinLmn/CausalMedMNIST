@@ -12,7 +12,7 @@ class DatasetConfig:
     classes: tuple[int, int]
     channels: int
     covariate_dimension: int
-    prior: dict | str
+    prior: Callable | None
     perturbation: Callable[..., Perturbation]
     treatment_coefficients: np.ndarray
     outcome_coefficients: np.ndarray

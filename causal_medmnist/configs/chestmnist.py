@@ -1,5 +1,3 @@
-from functools import partial
-
 import numpy as np
 
 from ..datasets import DatasetConfig, register
@@ -7,16 +5,16 @@ from ..perturbations.localized import LocalizedPerturbation
 from ..perturbations.scattered import ScatteredPerturbation
 from ..prior import derived_prior
 
-OCTMNIST_CNV_LABEL = 0
-OCTMNIST_DME_LABEL = 1
-OCTMNIST_DRUSEN_LABEL = 2
-OCTMNIST_NORMAL_LABEL = 3
+CHESTMNIST_NO_FINDING_LABEL = 0
+CHESTMNIST_EFFUSION_LABEL = 2
+CHESTMNIST_MASS_LABEL = 4
+CHESTMNIST_NODULE_LABEL = 5
 
-OCTMNIST_CNV = register(
+CHEST_EFFUSION = register(
     DatasetConfig(
-        key="octmnist_cnv",
-        source="octmnist",
-        classes=(OCTMNIST_NORMAL_LABEL, OCTMNIST_CNV_LABEL),
+        key="chestmnist_effusion",
+        source="chestmnist",
+        classes=(CHESTMNIST_NO_FINDING_LABEL, CHESTMNIST_EFFUSION_LABEL),
         channels=1,
         covariate_dimension=6,
         prior=derived_prior,
@@ -26,25 +24,25 @@ OCTMNIST_CNV = register(
     )
 )
 
-OCTMNIST_DME = register(
+CHEST_MASS = register(
     DatasetConfig(
-        key="octmnist_dme",
-        source="octmnist",
-        classes=(OCTMNIST_NORMAL_LABEL, OCTMNIST_DME_LABEL),
+        key="chestmnist_mass",
+        source="chestmnist",
+        classes=(CHESTMNIST_NO_FINDING_LABEL, CHESTMNIST_MASS_LABEL),
         channels=1,
         covariate_dimension=6,
         prior=derived_prior,
-        perturbation=partial(LocalizedPerturbation, signed=True),
+        perturbation=LocalizedPerturbation,
         treatment_coefficients=np.array([0.90, -0.75, 0.55, -0.40, 0.30, -0.20]),
         outcome_coefficients=np.array([0.60, -0.50, 0.40, -0.30, 0.20, -0.10]),
     )
 )
 
-OCTMNIST_DRUSEN = register(
+CHEST_NODULE = register(
     DatasetConfig(
-        key="octmnist_drusen",
-        source="octmnist",
-        classes=(OCTMNIST_NORMAL_LABEL, OCTMNIST_DRUSEN_LABEL),
+        key="chestmnist_nodule",
+        source="chestmnist",
+        classes=(CHESTMNIST_NO_FINDING_LABEL, CHESTMNIST_NODULE_LABEL),
         channels=1,
         covariate_dimension=6,
         prior=derived_prior,

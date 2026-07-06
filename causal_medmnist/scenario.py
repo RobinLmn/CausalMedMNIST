@@ -31,27 +31,23 @@ class Sample:
 class Scenario:
     """A causal scenario from which datasets can be generated.
 
-    Wraps a MedMNIST dataset in causal model where confounders `X` drive both the treatment `A` and
-    the outcome `Y`. Draws samples with known ground-truth potential outcomes via the `generate`
-    method.
+    Wraps a MedMNIST dataset in model where confounders `X` cause both the treatment `A` and the outcome `Y`. Draws samples and returns ground-truth
+    potential outcomes with the `generate` method.
 
     Args:
-        dataset: A registered dataset configuration or its key string.
-        effect_strength: Strength of the treatment effect; `0.0` is the null with no effect.
-        confounding_strength: Scales the treatment and outcome coefficients; `0.0` is a randomized
-            trial with no confounding.
-        propensity_clipping: (low, high) bounds on P(A=1 | X); enforces overlap.
-        covariate_dimension: Dimension of the confounders `X`; defaults to the dataset's value.
-        treatment_coefficients: Override for the treatment weights; defaults to a decaying
-            alternating-sign vector.
-        outcome_coefficients: Override for the outcome weights; defaults to a decaying
-            alternating-sign vector.
-        center_effect: If True, center the potential outcomes so the mean effect is zero and the
-            signal lives in the heterogeneity; if False, keep a genuine non-zero average effect.
-        seed: Default random seed; `generate(seed=...)` can override it per draw.
+        dataset: A dataset configuration or its key string.
+        effect_strength: Strength of the treatment effect. `0.0` represents the null hypothesis with no treatment effect.
+        confounding_strength: Scales the treatment and outcome coefficients. `0.0` is a randomized trial with no confounding.
+        propensity_clipping: (low, high) clipping bounds on the propensity to enforce overlap.
+        covariate_dimension: Dimension of the confounders `X`. Defaults to the dataset configuration's value.
+        treatment_coefficients: Treatment weights. Defaults to the dataset configuration's value.
+        outcome_coefficients: Outcome weights. Defaults to the dataset configuration's value.
+        perturbation: Perturbation class with `fit` and `apply` methods. Defaults to the dataset perturbation's value.
+        center_effect: If True, the potential outcomes are re-centered to ensure a mean effect of zero.
+        seed: Default random seed.
 
     Examples:
-        >>> scenario = Scenario(OCTMNIST, effect_strength=0.6)
+        >>> scenario = Scenario(OCTMNIST_DME, effect_strength=0.6)
         >>> sample = scenario.generate(n=1000, seed=0)
     """
 
@@ -65,6 +61,7 @@ class Scenario:
         covariate_dimension=None,
         treatment_coefficients=None,
         outcome_coefficients=None,
+        perturbation=None,
         center_effect=True,
         seed=None,
     ):
@@ -77,10 +74,11 @@ class Scenario:
         self.outcome_coefficients = default(outcome_coefficients, self.config.outcome_coefficients)
         self.center_effect = center_effect
         self.seed = seed
-        self._perturbation = None
+        self.perturbation = default(perturbation, self.config.perturbation(prior=self.config.prior))
 
         if len(self.treatment_coefficients) != self.covariate_dimension:
             raise ValueError(f"treatment_coefficients has length {len(self.treatment_coefficients)}, expected: {self.covariate_dimension}")
+
         if len(self.outcome_coefficients) != self.covariate_dimension:
             raise ValueError(f"outcome_coefficients has length {len(self.outcome_coefficients)}, expected: {self.covariate_dimension}")
 
@@ -113,21 +111,13 @@ class Scenario:
         Y = np.where(select == 1, Y1, Y0)
         return Sample(X=X, Y=Y, A=A, propensity=propensity, Y0=Y0, Y1=Y1)
 
-    def _fitted_perturbation(self):
-        if self._perturbation is None:
-            source = self.config.source or self.config.key
-            healthy, disease = load_class_pools(source, *self.config.classes, split="train")
-            self._perturbation = self.config.perturbation(prior=self.config.prior).fit(healthy, disease)
-        return self._perturbation
-
     def _potential_outcomes(self, X, beta, split, replace, rng, n, q_min=0.10, q_max=0.40, tau=0.20):
-        config = self.config
-        healthy, _ = load_class_pools(config.source or config.key, *config.classes, split=split)
-
+        healthy, disease = load_class_pools(self.config.source or self.config.key, *self.config.classes, split=split)
         if not replace and n > len(healthy):
-            raise ValueError(f"n={n} exceeds the {len(healthy)} baselines for split={split!r}; pass replace=True to reuse them")
+            raise ValueError(f"N={n} exceeds the number of available images for split={split!r} (available: {len(healthy)}). Set replace=True orreduce N.")
+
         baselines = healthy[rng.choice(len(healthy), size=n, replace=replace)]
-        perturbation = self._fitted_perturbation()
+        self.perturbation.fit(healthy, disease, baselines, rng)
 
         q = q_min + (q_max - q_min) * sigmoid(X @ beta)
         S = rng.binomial(1, q).astype(float)
@@ -135,8 +125,8 @@ class Scenario:
         J1 = np.exp(tau * rng.normal(size=n) - 0.5 * tau**2)
         theta = self.effect_strength
 
-        R0 = perturbation.apply(baselines, q * theta * J0, rng)
-        R1 = perturbation.apply(baselines, S * theta * J1, rng)
+        R0 = self.perturbation.apply(q * theta * J0, rng)
+        R1 = self.perturbation.apply(S * theta * J1, rng)
 
         if self.center_effect:
             delta_bar = (R1 - R0).mean(axis=0)

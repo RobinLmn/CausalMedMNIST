@@ -4,12 +4,13 @@ import numpy as np
 
 
 class Perturbation(ABC):
-    """A disease-signature generator that turns a per-unit magnitude into image changes."""
+    """A synthetic perturbation fitted from data and applied to baseline images."""
 
     @abstractmethod
-    def fit(self, healthy, disease) -> "Perturbation":
-        """Learn the disease signature from the two real class pools."""
+    def fit(self, healthy, disease, baselines, rng):
+        """Sample `self.mask`, the per-unit disease signature, from the class pools and baselines."""
 
-    @abstractmethod
-    def apply(self, baselines, magnitude, rng) -> np.ndarray:
-        """Return the per-unit signature field to add onto the baseline images."""
+    def apply(self, magnitude, rng) -> np.ndarray:
+        """Scale the fitted mask by each unit's magnitude and add per-pixel noise."""
+        noise = rng.normal(0.0, self.noise_sigma, size=(len(magnitude), *self.mask.shape[1:]))
+        return magnitude.reshape((-1,) + (1,) * (self.mask.ndim - 1)) * self.mask + noise

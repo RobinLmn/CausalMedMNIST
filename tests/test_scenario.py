@@ -2,11 +2,27 @@ import numpy as np
 import pytest
 
 import causal_medmnist as cm
-from causal_medmnist.perturbations.localized import LocalizedPerturbation
-from causal_medmnist.perturbations.scattered import ScatteredPerturbation
 
-CONFIGS = [cm.OCTMNIST_CNV, cm.OCTMNIST_DME, cm.OCTMNIST_DRUSEN, cm.PNEUMONIA]
-CONFIG_IDS = ["cnv", "dme", "drusen", "pneumonia"]
+CONFIGS = [
+    cm.OCTMNIST_CNV,
+    cm.OCTMNIST_DME,
+    cm.OCTMNIST_DRUSEN,
+    cm.PNEUMONIA,
+    cm.CHEST_EFFUSION,
+    cm.CHEST_MASS,
+    cm.CHEST_NODULE,
+    cm.RETINA,
+]
+CONFIG_IDS = [
+    "cnv",
+    "dme",
+    "drusen",
+    "pneumonia",
+    "chest_effusion",
+    "chest_mass",
+    "chest_nodule",
+    "retina",
+]
 
 
 @pytest.fixture(params=CONFIGS, ids=CONFIG_IDS, scope="module")
@@ -22,7 +38,7 @@ def sample(config):
 def test_shapes(sample):
     assert sample.X.shape == (200, 6)
     assert sample.A.shape == (200,)
-    assert sample.Y.shape == (200, 28, 28)
+    assert sample.Y.shape[:3] == (200, 28, 28)
     assert sample.propensity.shape == (200,)
     assert sample.Y0.shape == sample.Y.shape
     assert sample.Y1.shape == sample.Y.shape
@@ -48,7 +64,8 @@ def test_propensity_within_overlap_bounds(sample):
 
 
 def test_observed_matches_potential_outcomes(sample):
-    expected = np.where(sample.A[:, None, None] == 1, sample.Y1, sample.Y0)
+    select = sample.A.reshape((-1,) + (1,) * (sample.Y1.ndim - 1))
+    expected = np.where(select == 1, sample.Y1, sample.Y0)
     assert np.array_equal(sample.Y, expected)
 
 
@@ -110,12 +127,6 @@ def test_unknown_dataset_raises():
         cm.Scenario("not_a_dataset")
 
 
-@pytest.mark.parametrize("perturbation", [LocalizedPerturbation, ScatteredPerturbation])
-def test_apply_before_fit_raises(perturbation):
-    with pytest.raises(RuntimeError):
-        perturbation().apply(np.zeros((1, 28, 28)), np.zeros(1), np.random.default_rng(0))
-
-
 def test_coefficient_dimension_mismatch_raises():
     with pytest.raises(ValueError):
         cm.Scenario(cm.OCTMNIST_DME, covariate_dimension=4)
@@ -129,3 +140,15 @@ def test_bad_split_raises():
 def test_n_too_large_raises():
     with pytest.raises(ValueError):
         cm.Scenario(cm.OCTMNIST_DME).generate(n=10**9, seed=0)
+
+
+@pytest.mark.parametrize(
+    "grade",
+    [cm.RETINA_MILD, cm.RETINA_MODERATE, cm.RETINA_SEVERE, cm.RETINA_PROLIFERATIVE],
+    ids=["mild", "moderate", "severe", "proliferative"],
+)
+def test_retina_grades_generate(grade):
+    sample = cm.Scenario(grade, effect_strength=0.4).generate(n=100, seed=0, replace=True)
+    assert sample.Y.shape == (100, 28, 28, 3)
+    assert np.isfinite(sample.Y).all()
+    assert np.abs((sample.Y1 - sample.Y0).mean(axis=0)).max() < 1e-6

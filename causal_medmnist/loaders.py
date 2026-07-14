@@ -16,11 +16,15 @@ def _load(key, size=28):
     images, labels, splits = [], [], []
     for split in SPLITS:
         dataset = dataset_class(root=_ROOT, split=split, download=True, size=size)
-        images.append(dataset.imgs.astype(np.float64) / 255.0)
+        images.append(dataset.imgs)
         label = dataset.labels
         labels.append(label.flatten() if label.shape[1] == 1 else label)
         splits.append(np.full(len(dataset.labels), split))
     return np.concatenate(images), np.concatenate(labels), np.concatenate(splits)
+
+
+def _scale(images):
+    return images.astype(np.float64) / 255.0
 
 
 def load_class_pools(key, healthy_label, disease_label, split=None, size=28):
@@ -34,9 +38,9 @@ def load_class_pools(key, healthy_label, disease_label, split=None, size=28):
         images, labels = images[keep], labels[keep]
 
     if labels.ndim == 1:
-        return images[labels == healthy_label], images[labels == disease_label]
+        return _scale(images[labels == healthy_label]), _scale(images[labels == disease_label])
 
-    return images[labels.sum(1) == 0], images[labels[:, disease_label] == 1]
+    return _scale(images[labels.sum(1) == 0]), _scale(images[labels[:, disease_label] == 1])
 
 
 def medmnist_loader(key, healthy_label, disease_label, size=28):

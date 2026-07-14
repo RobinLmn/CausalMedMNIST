@@ -1,3 +1,7 @@
+from .bloodmnist import (
+    BLOOD_AUER_ROD,
+    BLOODMNIST_IMMATURE_GRANULOCYTE_LABEL,
+)
 from .breastmnist import (
     BREAST,
     BREASTMNIST_MALIGNANT_LABEL,
@@ -46,6 +50,8 @@ from .retinamnist import (
 )
 
 __all__ = [
+    "BLOOD_AUER_ROD",
+    "BLOODMNIST_IMMATURE_GRANULOCYTE_LABEL",
     "BREAST",
     "BREASTMNIST_MALIGNANT_LABEL",
     "BREASTMNIST_NORMAL_BENIGN_LABEL",

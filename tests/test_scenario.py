@@ -20,6 +20,7 @@ CONFIGS = [
     cm.RETINA_MODERATE,
     cm.RETINA_SEVERE,
     cm.RETINA_PROLIFERATIVE,
+    cm.BLOOD_AUER_ROD,
 ]
 CONFIG_IDS = [
     "cnv",
@@ -36,6 +37,7 @@ CONFIG_IDS = [
     "retina_moderate",
     "retina_severe",
     "retina_proliferative",
+    "blood_auer_rod",
 ]
 
 

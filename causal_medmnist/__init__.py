@@ -1,4 +1,5 @@
 from .configs import (
+    BLOOD_AUER_ROD,
     BREAST,
     CHEST_CARDIOMEGALY,
     CHEST_EFFUSION,
@@ -23,6 +24,7 @@ __all__ = [
     "DatasetConfig",
     "get_config",
     "register",
+    "BLOOD_AUER_ROD",
     "BREAST",
     "CHEST_CARDIOMEGALY",
     "CHEST_EFFUSION",

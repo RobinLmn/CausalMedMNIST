@@ -37,3 +37,10 @@ def load_class_pools(key, healthy_label, disease_label, split=None, size=28):
         return images[labels == healthy_label], images[labels == disease_label]
 
     return images[labels.sum(1) == 0], images[labels[:, disease_label] == 1]
+
+
+def medmnist_loader(key, healthy_label, disease_label, size=28):
+    """Build a loader `(split) -> (healthy_images, disease_images)` for MedMNIST datasets."""
+    def load(split=None):
+        return load_class_pools(key, healthy_label, disease_label, split=split, size=size)
+    return load

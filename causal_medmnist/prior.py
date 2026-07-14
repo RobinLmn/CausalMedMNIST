@@ -64,12 +64,13 @@ def dark_region_prior(healthy, disease, signed=False, n=None, rng=None):
     return dark / (dark.max() + 1e-12)
 
 
-def unilateral_prior(healthy, disease, signed=False, n=None, rng=None):
-    """Per-unit prior that keeps only the left or right half of a derived prior: one side drawn per unit."""
+def unilateral_prior(healthy, disease, signed=False, n=None, rng=None, p_both=0.25):
+    """Per-unit prior keeping the left half, right half, or (with probability `p_both`) both halves of a derived prior."""
     base = derived_prior(healthy, disease, signed=signed)
     half = base.shape[1] // 2
     left, right = base.copy(), base.copy()
     left[:, half:] = 0.0
     right[:, :half] = 0.0
-    sides = np.stack([left, right])
-    return sides[rng.integers(0, 2, size=n)]
+    options = np.stack([left, right, base])
+    choice = rng.choice(3, size=n, p=[(1.0 - p_both) / 2, (1.0 - p_both) / 2, p_both])
+    return options[choice]

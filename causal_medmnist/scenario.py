@@ -3,8 +3,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from .datasets import get_config
-from .loaders import load_class_pools
-from .utils import default, sigmoid
+from .utils import sigmoid
 
 
 @dataclass
@@ -39,11 +38,8 @@ class Scenario:
         effect_strength: Strength of the treatment effect. `0.0` represents the null hypothesis with no treatment effect.
         confounding_strength: Scales the treatment and outcome coefficients. `0.0` is a randomized trial with no confounding.
         propensity_clipping: (low, high) clipping bounds on the propensity to enforce overlap.
-        covariate_dimension: Dimension of the confounders `X`. Defaults to the dataset configuration's value.
-        treatment_coefficients: Treatment weights. Defaults to the dataset configuration's value.
-        outcome_coefficients: Outcome weights. Defaults to the dataset configuration's value.
-        perturbation: Perturbation class with `fit` and `apply` methods. Defaults to the dataset perturbation's value.
-        center_effect: If True, the potential outcomes are re-centered to ensure a mean effect of zero.
+        distributional_effect: If True, the treatment effect is built to be distributional (mean-matched). Otherwise, the treatment effect lies in the mean.
+        center_effect: If True, the potential outcomes are re-centered to ensure a mean effect of zero. Only used for distributional effects.
         seed: Default random seed.
 
     Examples:
@@ -58,10 +54,7 @@ class Scenario:
         effect_strength=0.6,
         confounding_strength=1.0,
         propensity_clipping=(0.07, 0.93),
-        covariate_dimension=None,
-        treatment_coefficients=None,
-        outcome_coefficients=None,
-        perturbation=None,
+        distributional_effect=True,
         center_effect=True,
         seed=None,
     ):
@@ -69,18 +62,16 @@ class Scenario:
         self.effect_strength = effect_strength
         self.confounding_strength = confounding_strength
         self.propensity_clipping = propensity_clipping
-        self.covariate_dimension = default(covariate_dimension, self.config.covariate_dimension)
-        self.treatment_coefficients = default(treatment_coefficients, self.config.treatment_coefficients)
-        self.outcome_coefficients = default(outcome_coefficients, self.config.outcome_coefficients)
+        self.distributional_effect = distributional_effect
         self.center_effect = center_effect
         self.seed = seed
-        self.perturbation = default(perturbation, self.config.perturbation)(prior=self.config.prior)
+        self.perturbation = self.config.perturbation(prior=self.config.prior)
 
-        if len(self.treatment_coefficients) != self.covariate_dimension:
-            raise ValueError(f"treatment_coefficients has length {len(self.treatment_coefficients)}, expected: {self.covariate_dimension}")
+        if len(self.config.treatment_coefficients) != self.config.covariate_dimension:
+            raise ValueError(f"treatment_coefficients has length {len(self.config.treatment_coefficients)}, expected: {self.config.covariate_dimension}")
 
-        if len(self.outcome_coefficients) != self.covariate_dimension:
-            raise ValueError(f"outcome_coefficients has length {len(self.outcome_coefficients)}, expected: {self.covariate_dimension}")
+        if len(self.config.outcome_coefficients) != self.config.covariate_dimension:
+            raise ValueError(f"outcome_coefficients has length {len(self.config.outcome_coefficients)}, expected: {self.config.covariate_dimension}")
 
     def generate(self, n, *, seed=None, split="train", replace=False):
         """Sample a dataset from this scenario's causal model.
@@ -99,10 +90,10 @@ class Scenario:
             A `Sample` holding `X`, `A`, `Y`, `propensity`, and the oracle outcomes `Y0` and `Y1`.
         """
         rng = np.random.default_rng(self.seed if seed is None else seed)
-        alpha = self.treatment_coefficients * self.confounding_strength
-        beta = self.outcome_coefficients * self.confounding_strength
+        alpha = self.config.treatment_coefficients * self.confounding_strength
+        beta = self.config.outcome_coefficients * self.confounding_strength
 
-        X = rng.normal(0, 1, size=(n, self.covariate_dimension))
+        X = rng.normal(0, 1, size=(n, self.config.covariate_dimension))
         propensity = np.clip(sigmoid(X @ alpha), *self.propensity_clipping)
         A = rng.binomial(1, propensity)
         Y0, Y1 = self._potential_outcomes(X, beta, split, replace, rng, n)
@@ -112,27 +103,32 @@ class Scenario:
         return Sample(X=X, Y=Y, A=A, propensity=propensity, Y0=Y0, Y1=Y1)
 
     def _potential_outcomes(self, X, beta, split, replace, rng, n, q_min=0.10, q_max=0.40, tau=0.20):
-        healthy, disease = load_class_pools(self.config.source or self.config.key, *self.config.classes, split=split)
+        healthy, _ = self.config.loader(split)
         if not replace and n > len(healthy):
             raise ValueError(f"N={n} exceeds the number of available images for split={split!r} (available: {len(healthy)}). Set replace=True or reduce N.")
 
         baselines = healthy[rng.choice(len(healthy), size=n, replace=replace)]
 
-        healthy_tr, disease_tr = load_class_pools(self.config.source or self.config.key, *self.config.classes, split="train")
+        healthy_tr, disease_tr = self.config.loader("train")
         self.perturbation.fit(healthy_tr, disease_tr, baselines, rng)
 
-        q = q_min + (q_max - q_min) * sigmoid(X @ beta)
-        S = rng.binomial(1, q).astype(float)
-        J0 = np.exp(tau * rng.normal(size=n) - 0.5 * tau**2)
         J1 = np.exp(tau * rng.normal(size=n) - 0.5 * tau**2)
         theta = self.effect_strength
 
-        R0 = self.perturbation.apply(q * theta * J0, rng)
-        R1 = self.perturbation.apply(S * theta * J1, rng)
+        if not self.distributional_effect:
+            R0 = self.perturbation.apply(np.zeros(n), rng)
+            R1 = self.perturbation.apply(theta * J1, rng)
+        else:
+            q = q_min + (q_max - q_min) * sigmoid(X @ beta)
+            S = rng.binomial(1, q).astype(float)
+            J0 = np.exp(tau * rng.normal(size=n) - 0.5 * tau**2)
 
-        if self.center_effect:
-            delta_bar = (R1 - R0).mean(axis=0)
-            R0 = R0 + 0.5 * delta_bar
-            R1 = R1 - 0.5 * delta_bar
+            R0 = self.perturbation.apply(q * theta * J0, rng)
+            R1 = self.perturbation.apply(S * theta * J1, rng)
+
+            if self.center_effect:
+                delta_bar = (R1 - R0).mean(axis=0)
+                R0 = R0 + 0.5 * delta_bar
+                R1 = R1 - 0.5 * delta_bar
 
         return (baselines + R0).astype(np.float32), (baselines + R1).astype(np.float32)

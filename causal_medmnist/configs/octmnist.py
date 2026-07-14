@@ -3,6 +3,7 @@ from functools import partial
 import numpy as np
 
 from ..datasets import DatasetConfig, register
+from ..loaders import medmnist_loader
 from ..perturbations.localized import LocalizedPerturbation
 from ..perturbations.scattered import ScatteredPerturbation
 from ..prior import derived_prior
@@ -15,8 +16,7 @@ OCTMNIST_NORMAL_LABEL = 3
 OCTMNIST_CNV = register(
     DatasetConfig(
         key="octmnist_cnv",
-        source="octmnist",
-        classes=(OCTMNIST_NORMAL_LABEL, OCTMNIST_CNV_LABEL),
+        loader=medmnist_loader("octmnist", OCTMNIST_NORMAL_LABEL, OCTMNIST_CNV_LABEL),
         channels=1,
         covariate_dimension=6,
         prior=derived_prior,
@@ -29,8 +29,7 @@ OCTMNIST_CNV = register(
 OCTMNIST_DME = register(
     DatasetConfig(
         key="octmnist_dme",
-        source="octmnist",
-        classes=(OCTMNIST_NORMAL_LABEL, OCTMNIST_DME_LABEL),
+        loader=medmnist_loader("octmnist", OCTMNIST_NORMAL_LABEL, OCTMNIST_DME_LABEL),
         channels=1,
         covariate_dimension=6,
         prior=derived_prior,
@@ -43,8 +42,7 @@ OCTMNIST_DME = register(
 OCTMNIST_DRUSEN = register(
     DatasetConfig(
         key="octmnist_drusen",
-        source="octmnist",
-        classes=(OCTMNIST_NORMAL_LABEL, OCTMNIST_DRUSEN_LABEL),
+        loader=medmnist_loader("octmnist", OCTMNIST_NORMAL_LABEL, OCTMNIST_DRUSEN_LABEL),
         channels=1,
         covariate_dimension=6,
         prior=derived_prior,

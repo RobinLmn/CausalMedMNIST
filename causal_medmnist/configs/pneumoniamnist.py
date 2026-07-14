@@ -1,6 +1,7 @@
 import numpy as np
 
 from ..datasets import DatasetConfig, register
+from ..loaders import medmnist_loader
 from ..perturbations.localized import LocalizedPerturbation
 from ..prior import unilateral_prior
 
@@ -10,7 +11,7 @@ PNEUMONIAMNIST_PNEUMONIA_LABEL = 1
 PNEUMONIA = register(
     DatasetConfig(
         key="pneumoniamnist",
-        classes=(PNEUMONIAMNIST_NORMAL_LABEL, PNEUMONIAMNIST_PNEUMONIA_LABEL),
+        loader=medmnist_loader("pneumoniamnist", PNEUMONIAMNIST_NORMAL_LABEL, PNEUMONIAMNIST_PNEUMONIA_LABEL),
         channels=1,
         covariate_dimension=6,
         prior=unilateral_prior,

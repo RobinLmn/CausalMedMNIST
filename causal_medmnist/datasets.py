@@ -9,14 +9,13 @@ from .perturbations.base import Perturbation
 @dataclass(frozen=True)
 class DatasetConfig:
     key: str
-    classes: tuple[int, int]
+    loader: Callable[..., tuple[np.ndarray, np.ndarray]]
     channels: int
     covariate_dimension: int
     prior: Callable | None
     perturbation: Callable[..., Perturbation]
     treatment_coefficients: np.ndarray
     outcome_coefficients: np.ndarray
-    source: str | None = None
 
 
 REGISTRY: dict[str, DatasetConfig] = {}

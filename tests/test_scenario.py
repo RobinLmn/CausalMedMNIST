@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import numpy as np
 import pytest
 
@@ -11,7 +13,13 @@ CONFIGS = [
     cm.CHEST_EFFUSION,
     cm.CHEST_MASS,
     cm.CHEST_NODULE,
-    cm.RETINA,
+    cm.CHEST_CARDIOMEGALY,
+    cm.DERMA,
+    cm.BREAST,
+    cm.RETINA_MILD,
+    cm.RETINA_MODERATE,
+    cm.RETINA_SEVERE,
+    cm.RETINA_PROLIFERATIVE,
 ]
 CONFIG_IDS = [
     "cnv",
@@ -21,7 +29,13 @@ CONFIG_IDS = [
     "chest_effusion",
     "chest_mass",
     "chest_nodule",
-    "retina",
+    "chest_cardiomegaly",
+    "derma",
+    "breast",
+    "retina_mild",
+    "retina_moderate",
+    "retina_severe",
+    "retina_proliferative",
 ]
 
 
@@ -113,13 +127,13 @@ def test_randomized_when_no_confounding(config):
 
 
 def test_covariate_dimension_override():
-    scenario = cm.Scenario(
+    config = replace(
         cm.OCTMNIST_DME,
         covariate_dimension=3,
         treatment_coefficients=np.array([0.5, -0.3, 0.2]),
         outcome_coefficients=np.array([0.4, -0.2, 0.1]),
     )
-    assert scenario.generate(n=20, seed=0).X.shape == (20, 3)
+    assert cm.Scenario(config).generate(n=20, seed=0).X.shape == (20, 3)
 
 
 def test_unknown_dataset_raises():
@@ -129,7 +143,7 @@ def test_unknown_dataset_raises():
 
 def test_coefficient_dimension_mismatch_raises():
     with pytest.raises(ValueError):
-        cm.Scenario(cm.OCTMNIST_DME, covariate_dimension=4)
+        cm.Scenario(replace(cm.OCTMNIST_DME, covariate_dimension=4))
 
 
 def test_bad_split_raises():

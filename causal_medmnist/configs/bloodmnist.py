@@ -65,7 +65,6 @@ class AuerRodPerturbation(SyntheticPerturbation):
         self,
         prior=None,
         noise_sigma=0.02,
-        max_draw_failures=0.02,
         rod_counts=(1, 2, 3),
         rod_probabilities=(0.70, 0.22, 0.08),
         rod_length=1.6,

@@ -38,6 +38,7 @@ class Scenario:
         effect_strength: Strength of the treatment effect. `0.0` represents the null hypothesis with no treatment effect.
         confounding_strength: Scales the treatment and outcome coefficients. `0.0` is a randomized trial with no confounding.
         propensity_clipping: (low, high) clipping bounds on the propensity to enforce overlap.
+        effect_heterogeneity: Scales how much the effect depends on X. `0.0` keeps the effect homogeneous.
         distributional_effect: If True, the treatment effect is built to be distributional (mean-matched). Otherwise, the treatment effect lies in the mean.
         center_effect: If True, the potential outcomes are re-centered to ensure a mean effect of zero. Only used for distributional effects.
         seed: Default random seed.
@@ -54,6 +55,7 @@ class Scenario:
         effect_strength=0.6,
         confounding_strength=1.0,
         propensity_clipping=(0.07, 0.93),
+        effect_heterogeneity=0.0,
         distributional_effect=True,
         center_effect=True,
         seed=None,
@@ -62,6 +64,7 @@ class Scenario:
         self.effect_strength = effect_strength
         self.confounding_strength = confounding_strength
         self.propensity_clipping = propensity_clipping
+        self.effect_heterogeneity = effect_heterogeneity
         self.distributional_effect = distributional_effect
         self.center_effect = center_effect
         self.seed = seed
@@ -113,7 +116,8 @@ class Scenario:
         self.perturbation.fit(healthy_tr, disease_tr, baselines, rng)
 
         J1 = np.exp(tau * rng.normal(size=n) - 0.5 * tau**2)
-        theta = self.effect_strength
+        m = 2.0 * sigmoid(self.effect_heterogeneity * (X @ beta))
+        theta = self.effect_strength * m
 
         if not self.distributional_effect:
             R0 = self.perturbation.apply(np.zeros(n), rng)

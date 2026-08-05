@@ -1,4 +1,5 @@
 ignore/
+benchmarks/code
 
 # uv / virtualenv
 .venv/
